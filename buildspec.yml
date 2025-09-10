@@ -1,0 +1,25 @@
+version: 0.2
+env:
+  variables:
+    IMAGE_REPO_NAME: qyberapi
+    IMAGE_TAG: latest
+phases:
+  pre_build:
+    commands:
+      - echo "Login to ECR"
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com
+      - REPOSITORY_URI=${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}
+  build:
+    commands:
+      - echo "Build image"
+      - docker build -t ${IMAGE_REPO_NAME}:${IMAGE_TAG} .
+      - docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}
+  post_build:
+    commands:
+      - echo "Push image"
+      - docker push ${REPOSITORY_URI}:${IMAGE_TAG}
+      - printf '{"ImageURI":"%s"}' ${REPOSITORY_URI}:${IMAGE_TAG} > imageDetail.json
+artifacts:
+  files:
+    - imageDetail.json
